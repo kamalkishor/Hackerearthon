@@ -1,0 +1,169 @@
+package com.valokafor.regisscisapp.providers;
+
+
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import com.valokafor.regisscisapp.services.LocalDatabase;
+
+import android.content.ContentProvider;
+import android.content.ContentResolver;
+import android.content.ContentValues;
+import android.content.UriMatcher;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteQueryBuilder;
+import android.net.Uri;
+import android.os.AsyncTask;
+import android.provider.BaseColumns;
+import android.text.TextUtils;
+import android.util.Log;
+
+public class Provider extends ContentProvider {
+	private static final int PROGRAMS = 1;
+	private static final int PROGRAM_ID = 2;
+	private static final UriMatcher MATCHER;
+	private static final String TABLE = "ProgramTable";
+	
+	public static final class Programs implements BaseColumns{
+		public static final Uri CONTENT_URI =
+				Uri.parse("content://com.valokafor.regisscisapp.Provider/programs");
+		public static final String DEFAULT_SORT_ORDER = "name";
+		public static final String NAME = "name";
+		public static final String ID = "id";
+	}
+	
+	static{
+		MATCHER = new UriMatcher(UriMatcher.NO_MATCH);
+		MATCHER.addURI("com.valokafor.regisscisapp.Provider",
+				"programs", PROGRAMS);
+		MATCHER.addURI("com.valokafor.regisscisapp.Provider",
+				"programs/#", PROGRAM_ID);
+	}
+	
+	private LocalDatabase dbhelper = null;
+		
+	
+	
+	@Override
+	public int delete(Uri arg0, String arg1, String[] arg2) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+
+	@Override
+	public String getType(Uri arg0) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+	
+	@Override
+	public Uri insert(Uri url, ContentValues initialValues) {
+		dbhelper.getWritableDatabase().insert(TABLE, Programs.NAME, initialValues);
+		return url;
+	}
+
+	@Override
+	public boolean onCreate() {
+		
+		dbhelper = new LocalDatabase(getContext());
+		startWebService();
+		return((dbhelper == null) ? false : true);
+		
+	}
+
+	@Override
+	public Cursor query(Uri url, String[] projection, String selection, String[] selectionArgs,
+			String sort) {
+		    SQLiteQueryBuilder qb=new SQLiteQueryBuilder();
+		    qb.setTables(TABLE);
+		    String orderBy;
+
+		    if (TextUtils.isEmpty(sort)) {
+		      orderBy=Programs.DEFAULT_SORT_ORDER;
+		    }
+		    else {
+		      orderBy=sort;
+		    }
+		   
+		    Cursor c=
+		        qb.query(dbhelper.getReadableDatabase(), new String[]{"_id", "name"}, selection,
+		                 selectionArgs, null, null, orderBy);
+		    c.setNotificationUri(getContext().getContentResolver(), url);
+		    return(c);	
+	}
+
+	@Override
+	public int update(Uri arg0, ContentValues arg1, String arg2, String[] arg3) {
+		// TODO Auto-generated method stub
+		return 0;
+	}
+	
+	private void startWebService(){
+		HttpAsyncTask asyncTask = new HttpAsyncTask();
+		asyncTask.execute();			
+	}
+	
+	//class that extents AsyncTask class
+	class HttpAsyncTask extends AsyncTask<String, String, String>{
+
+		@Override
+		protected String doInBackground(String... args) {
+			Log.i("HttpAsyncTask", "start doinbackground");
+			
+			String result = "";
+			
+			HttpClient client = new DefaultHttpClient();
+			String url = "http://pastebin.com/aqziuquq";
+			HttpGet httpGet = new HttpGet(url);
+			httpGet.setHeader("Accept", "application/json");
+			
+			try {
+				HttpResponse response = client.execute(httpGet);
+				InputStream inputStream = response.getEntity().getContent();
+				BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+				String s = "";
+				while ((s = reader.readLine()) != null) {
+					result += s;
+				}
+			} catch (Exception e) {
+				Log.i("HttpAsyncTask", "EXCEPTION: " + e.getMessage());
+			}
+			
+			Log.i("HttpAsyncTask", "Returned string : " + result);
+			return result;
+		}
+
+		@Override
+		protected void onPostExecute(String result) {
+			super.onPostExecute(result);
+			ContentValues values = new ContentValues();
+			try {
+				JSONArray jsonArray = new JSONArray(result);
+				int lenght = jsonArray.length();
+				
+				for (int i = 0; i < jsonArray.length(); i++) {
+				  JSONObject jsonObject = jsonArray.getJSONObject(i);
+				  String name = jsonObject.getString("timestamp");
+				  values.put(Programs.NAME, name);
+				  insert(Programs.CONTENT_URI, values);
+				  
+				}				
+				Log.i("Data Changed", "Data changed " + lenght);
+				getContext().getContentResolver().notifyChange(Programs.CONTENT_URI, null);
+				} catch (JSONException e) {
+				e.printStackTrace();
+			}
+		}
+			
+	}
+
+}

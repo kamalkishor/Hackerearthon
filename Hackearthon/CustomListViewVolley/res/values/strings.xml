@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">Custom ListView with Volley</string>
+    <string name="action_settings">Settings</string>
+    <string name="hello_world">Hello world!</string>
+<string name="description">HackerEarth is running a 12 hour contest on 18th April. There will be 4 tough algorithmic and 1 Appr.</string>
+    
+</resources>

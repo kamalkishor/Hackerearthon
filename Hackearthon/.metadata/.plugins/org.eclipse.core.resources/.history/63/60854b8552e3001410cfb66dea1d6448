@@ -1,0 +1,96 @@
+package com.valokafor.regisscisapp.services;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.DefaultHttpClient;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import com.valokafor.regisscisapp.providers.Provider;
+import com.valokafor.regisscisapp.providers.Provider.Programs;
+
+import android.app.IntentService;
+import android.content.ContentValues;
+import android.content.Intent;
+
+public class RegisRestService extends IntentService {
+
+	public RegisRestService() {
+		super("RegisRestService");
+		// TODO Auto-generated constructor stub
+	}
+
+	@Override
+	protected void onHandleIntent(Intent intent) {
+		HttpClient httpClient = new DefaultHttpClient();
+		String url = "http://regisscis.net/Regis2/webresources/regis2.program";
+		HttpGet httpGet = new HttpGet(url);
+		httpGet.setHeader("Accept", "application/json");
+		
+		try {
+			HttpResponse response = httpClient.execute(httpGet);
+			String jsonResult = inputStreamToString(
+					response.getEntity().getContent()).toString();
+			
+			if (jsonResult != null) {
+				updateContentProvider(jsonResult);
+			}
+		} catch (ClientProtocolException e) {
+			e.printStackTrace();
+		}catch (IOException e) {
+			e.printStackTrace();
+		}
+
+	}
+	
+	 private StringBuilder inputStreamToString(InputStream is) {
+	        String rLine = "";
+	        StringBuilder answer = new StringBuilder();
+	        InputStreamReader isr = new InputStreamReader(is);
+	        BufferedReader rd = new BufferedReader(isr);
+	        try {
+	            while ((rLine = rd.readLine()) != null) {
+	                answer.append(rLine);
+	            }
+	        }
+
+	        catch (IOException e) {
+	            e.printStackTrace();
+	        }
+	        return answer;
+	    }
+	 
+//	 void sendResultBroadcast(String jsonResult) {
+//	        Intent in = new Intent();
+//	        in.putExtra("jsonresult", jsonResult);
+//	        in.setAction("com.valokafor.regisscisapp.CUSTOM_BROADCAST");
+//	        sendBroadcast(in);
+//	    }
+	 
+	 void updateContentProvider(String jsonResult){
+		 try {
+			 JSONArray jsonArray = new JSONArray(jsonResult);
+			 int lenght = jsonArray.length();
+			 ContentValues values = new ContentValues();
+			 Provider contentProvider = new Provider();
+				
+			 for (int i = 0; i < lenght; i++) {
+				 JSONObject jsonObject = jsonArray.getJSONObject(i);
+				 String name = jsonObject.getString("name");
+				 values.put(Programs.NAME, name);				
+			}
+			 contentProvider.insert(Programs.CONTENT_URI, values);
+		} catch (JSONException e) {
+			e.printStackTrace();
+		}
+	 }
+
+}
